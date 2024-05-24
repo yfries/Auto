@@ -1,0 +1,311 @@
+import tkinter as tk
+from tkinter import ttk, messagebox, simpledialog
+import sqlite3
+
+class InventoryApp:
+    def __init__(self, window):
+        self.window = window
+        self.window.title("Auto Parts Inventory System")
+        self.window.geometry("1350x700+0+0")
+
+        self.create_table_if_not_exists()
+        self.create_login_screen()
+
+    def create_table_if_not_exists(self):
+        conn = sqlite3.connect('inventory.db')
+        cursor = conn.cursor()
+        cursor.execute('''CREATE TABLE IF NOT EXISTS parts (
+                            itemID TEXT PRIMARY KEY,
+                            Name TEXT,
+                            Price TEXT,
+                            Quantity TEXT,
+                            Brand TEXT,
+                            Category TEXT,
+                            Date TEXT
+                          )''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+                            username TEXT PRIMARY KEY,
+                            password TEXT
+                          )''')
+        conn.commit()
+        conn.close()
+
+    def create_login_screen(self):
+        self.clear_frame()
+
+        self.login_frame = tk.Frame(self.window)
+        self.login_frame.pack(pady=100)
+
+        tk.Label(self.login_frame, text="Username:", font=("Arial", 14)).grid(row=0, column=0, pady=10, padx=10)
+        self.username_entry = tk.Entry(self.login_frame, font=("Arial", 14))
+        self.username_entry.grid(row=0, column=1, pady=10, padx=10)
+
+        tk.Label(self.login_frame, text="Password:", font=("Arial", 14)).grid(row=1, column=0, pady=10, padx=10)
+        self.password_entry = tk.Entry(self.login_frame, show='*', font=("Arial", 14))
+        self.password_entry.grid(row=1, column=1, pady=10, padx=10)
+
+        self.show_password_var = tk.IntVar()
+        self.show_password_check = tk.Checkbutton(self.login_frame, text="Show Password", variable=self.show_password_var, command=self.toggle_password_visibility)
+        self.show_password_check.grid(row=2, columnspan=2, pady=10)
+
+        tk.Button(self.login_frame, text="Login", font=("Arial", 14), command=self.login).grid(row=3, columnspan=2, pady=10)
+        tk.Button(self.login_frame, text="Create Account", font=("Arial", 14), command=self.create_account_screen).grid(row=4, columnspan=2, pady=10)
+
+    def toggle_password_visibility(self):
+        if self.show_password_var.get():
+            self.password_entry.config(show='')
+        else:
+            self.password_entry.config(show='*')
+
+    def login(self):
+        username = self.username_entry.get()
+        password = self.password_entry.get()
+
+        conn = sqlite3.connect('inventory.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
+        user = cursor.fetchone()
+        conn.close()
+
+        if user:
+            self.create_inventory_screen()
+        else:
+            messagebox.showerror("Error", "Invalid username or password")
+
+    def create_account_screen(self):
+        self.clear_frame()
+
+        self.create_account_frame = tk.Frame(self.window)
+        self.create_account_frame.pack(pady=60)
+
+        tk.Label(self.create_account_frame, text="Username:", font=("Arial", 14)).grid(row=0, column=0, pady=10, padx=10)
+        self.new_username_entry = tk.Entry(self.create_account_frame, font=("Arial", 14))
+        self.new_username_entry.grid(row=0, column=1, pady=10, padx=10)
+
+        tk.Label(self.create_account_frame, text="Password:", font=("Arial", 14)).grid(row=1, column=0, pady=10, padx=10)
+        self.new_password_entry = tk.Entry(self.create_account_frame, show='*', font=("Arial", 14))
+        self.new_password_entry.grid(row=1, column=1, pady=10, padx=10)
+
+        self.show_new_password_var = tk.IntVar()
+        self.show_new_password_check = tk.Checkbutton(self.create_account_frame, text="Show Password", variable=self.show_new_password_var, command=self.toggle_new_password_visibility)
+        self.show_new_password_check.grid(row=2, columnspan=2, pady=10)
+
+        tk.Button(self.create_account_frame, text="Create Account", font=("Arial", 14), command=self.create_account).grid(row=3, columnspan=2, pady=10)
+        tk.Button(self.create_account_frame, text="Back", font=("Arial", 14), command=self.create_login_screen).grid(row=4, columnspan=2, pady=10)
+
+    def toggle_new_password_visibility(self):
+        if self.show_new_password_var.get():
+            self.new_password_entry.config(show= "")
+        else:
+            self.new_password_entry.config(show= '*')
+
+    def create_account(self):
+        username = self.new_username_entry.get()
+        password = self.new_password_entry.get()
+
+        conn = sqlite3.connect('inventory.db')
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
+        conn.commit()
+        conn.close()
+
+        messagebox.showinfo("Success", "Account created successfully!")
+        self.create_login_screen()
+
+    def create_inventory_screen(self):
+        self.clear_frame()
+
+        detail_frame = tk.LabelFrame(self.window, text="Enter Details", font=("Arial", 20), bd=12, relief=tk.GROOVE, bg="lightgrey")
+        detail_frame.place(x=20, y=52, width=475, height=600)
+
+        data_frame = tk.Frame(self.window, bd=12, bg="lightgrey", relief=tk.GROOVE)
+        data_frame.place(x=504, y=65, width=810, height=590)
+
+        # Define variables
+        self.item_id = tk.StringVar()
+        self.name = tk.StringVar()
+        self.price = tk.StringVar()
+        self.quantity = tk.StringVar()
+        self.brand = tk.StringVar()
+        self.category = tk.StringVar()
+        self.date = tk.StringVar()
+        self.search_by = tk.StringVar()
+
+        # Create detail frame entries
+        self.create_entry(detail_frame, "Item ID", 0, self.item_id)
+        self.create_entry(detail_frame, "Name", 1, self.name)
+        self.create_entry(detail_frame, "Price", 2, self.price)
+        self.create_entry(detail_frame, "Quantity", 3, self.quantity)
+        self.create_entry(detail_frame, "Brand", 4, self.brand)
+        self.create_entry(detail_frame, "Category", 5, self.category)
+        self.create_entry(detail_frame, "Date", 6, self.date)
+
+        # Create buttons
+        button_frame = tk.Frame(detail_frame, bg="lightgrey", bd=10, relief=tk.GROOVE)
+        button_frame.place(x=25, y=410, width=405, height=130)
+        self.create_button(button_frame, "Add", 0, 0, self.add_part)
+        self.create_button(button_frame, "Edit", 0, 1, self.edit_part)
+        self.create_button(button_frame, "Delete", 1, 0, self.remove_part)
+        self.create_button(button_frame, "Clear", 1, 1, self.clear_entries)
+
+        # Create search frame
+        search_frame = tk.Frame(data_frame, bd=10, bg="lightgrey", relief=tk.GROOVE)
+        search_frame.pack(side=tk.TOP, fill=tk.X)
+        tk.Label(search_frame, text="Search", font=("Arial", 14), bg="lightgrey").grid(row=0, column=0, padx=12, pady=2)
+        search_in = ttk.Combobox(search_frame, font=("Arial", 14), state='readonly', textvariable=self.search_by)
+        search_in["values"] = ("Name", "Item ID", "Brand", "Category")
+        search_in.grid(row=0, column=1, padx=12, pady=2)
+        tk.Button(search_frame, text="Search", font=("Arial", 13), bd=9, width=12, bg="lightgrey", command=self.search_part).grid(row=0, column=2, padx=12, pady=2)
+        tk.Button(search_frame, text="Show All", font=("Arial", 13), bd=9, width=12, bg="lightgrey", command=self.load_parts).grid(row=0, column=3, padx=12, pady=2)
+
+        # Create database frame
+        main_frame = tk.Frame(data_frame, bg="lightgrey", bd=11, relief=tk.GROOVE)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        y_scroll = tk.Scrollbar(main_frame, orient=tk.VERTICAL)
+        x_scroll = tk.Scrollbar(main_frame, orient=tk.HORIZONTAL)
+
+        self.inventory_frame = ttk.Treeview(main_frame, columns=("itemID", "Name", "Price", "Quantity", "Brand", "Category", "Date"),
+                                            yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
+
+        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        x_scroll.pack(side=tk.BOTTOM, fill=tk.X)
+
+        y_scroll.config(command=self.inventory_frame.yview)
+        x_scroll.config(command=self.inventory_frame.xview)
+
+        self.inventory_frame.heading("itemID", text="Item ID")
+        self.inventory_frame.heading("Name", text="Name")
+        self.inventory_frame.heading("Price", text="Price")
+        self.inventory_frame.heading("Quantity", text="Quantity")
+        self.inventory_frame.heading("Brand", text="Brand")
+        self.inventory_frame.heading("Category", text="Category")
+        self.inventory_frame.heading("Date", text="Date")
+        self.inventory_frame["show"] = "headings"
+
+        self.inventory_frame.pack(fill=tk.BOTH, expand=True)
+        self.load_parts()
+
+    def create_entry(self, parent, text, row, var):
+        label = tk.Label(parent, text=text, font=("Arial", 18), bg="lightgrey")
+        label.grid(row=row, column=0, pady=8, padx=10, sticky="w")
+        entry = tk.Entry(parent, bd=7, relief=tk.GROOVE, width=22, font=("Arial", 15), textvariable=var)
+        entry.grid(row=row, column=1, padx=8, pady=8)
+
+    def create_button(self, parent, text, row, col, command):
+        button = tk.Button(parent, text=text, font=("Arial", 15, "bold"), bd=5, width=10, command=command)
+        button.grid(row=row, column=col, padx=5, pady=5)
+
+    def add_part(self):
+        if self.item_id.get() == "" or self.name.get() == "":
+            messagebox.showerror("Error", "All fields are required!")
+        else:
+            conn = sqlite3.connect('inventory.db')
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO parts VALUES (?, ?, ?, ?, ?, ?, ?)",
+                           (self.item_id.get(), self.name.get(), self.price.get(), self.quantity.get(), self.brand.get(), self.category.get(), self.date.get()))
+            conn.commit()
+            conn.close()
+            self.load_parts()
+            self.clear_entries()
+
+    def edit_part(self):
+        selected = self.inventory_frame.selection()
+        if not selected:
+            messagebox.showerror("Error", "Please select a part to edit!")
+            return
+
+        item = self.inventory_frame.item(selected[0], 'values')
+        part_id = item[0]
+
+        if self.item_id.get() == "" or self.name.get() == "":
+            messagebox.showerror("Error", "All fields are required!")
+        else:
+            conn = sqlite3.connect('inventory.db')
+            cursor = conn.cursor()
+            cursor.execute("""UPDATE parts SET
+                              itemID = ?, Name = ?, Price = ?, Quantity = ?, Brand = ?, Category = ?, Date = ?
+                              WHERE itemID = ?""",
+                           (self.item_id.get(), self.name.get(), self.price.get(), self.quantity.get(), self.brand.get(), self.category.get(), self.date.get(), part_id))
+            conn.commit()
+            conn.close()
+            self.load_parts()
+            self.clear_entries()
+
+    def remove_part(self):
+        selected = self.inventory_frame.selection()
+        if not selected:
+            messagebox.showerror("Error", "Please select a part to delete!")
+            return
+
+        item = self.inventory_frame.item(selected[0], 'values')
+        part_id = item[0]
+
+        conn = sqlite3.connect('inventory.db')
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM parts WHERE itemID = ?", (part_id,))
+        conn.commit()
+        conn.close()
+        self.load_parts()
+
+    def search_part(self):
+        search_by = self.search_by.get()
+        if search_by == "":
+            messagebox.showerror("Error", "Please select a search criteria!")
+            return
+
+        search_value = simpledialog.askstring("Search", f"Enter {search_by}")
+
+        conn = sqlite3.connect('inventory.db')
+        cursor = conn.cursor()
+        query = f"SELECT * FROM parts WHERE {search_by} LIKE ?"
+        cursor.execute(query, ('%' + search_value + '%',))
+        rows = cursor.fetchall()
+        conn.close()
+
+        if rows:
+            self.inventory_frame.delete(*self.inventory_frame.get_children())
+            for row in rows:
+                self.inventory_frame.insert('', tk.END, values=row)
+            self.populate_entries(rows[0])
+            messagebox.showinfo("Search Result", f'Searching for {search_by}: "{search_value}"')
+        else:
+            messagebox.showinfo("Result", "No parts found!")
+
+    def populate_entries(self, part):
+        self.item_id.set(part[0])
+        self.name.set(part[1])
+        self.price.set(part[2])
+        self.quantity.set(part[3])
+        self.brand.set(part[4])
+        self.category.set(part[5])
+        self.date.set(part[6])
+
+    def load_parts(self):
+        conn = sqlite3.connect('inventory.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM parts")
+        rows = cursor.fetchall()
+        conn.close()
+
+        self.inventory_frame.delete(*self.inventory_frame.get_children())
+        for row in rows:
+            self.inventory_frame.insert('', tk.END, values=row)
+
+    def clear_entries(self):
+        self.item_id.set("")
+        self.name.set("")
+        self.price.set("")
+        self.quantity.set("")
+        self.brand.set("")
+        self.category.set("")
+        self.date.set("")
+
+    def clear_frame(self):
+        for widget in self.window.winfo_children():
+            widget.destroy()
+
+if __name__ == "__main__":
+    window = tk.Tk()
+    app = InventoryApp(window)
+    window.mainloop()
